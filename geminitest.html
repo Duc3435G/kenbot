@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ken AI Chatbot</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            width: 90%;
+            max-width: 500px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background-color: #4a148c; /* Deep Purple */
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+        #chat-window {
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            background-color: #e9ebee;
+            flex-grow: 1;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+            line-height: 1.4;
+            font-size: 0.95em;
+        }
+        .user-message {
+            background-color: #4a148c;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .bot-message {
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+        #input-form {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            background-color: #f7f7f7;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            margin-right: 10px;
+            font-size: 1em;
+        }
+        #send-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        #send-button:hover:not(:disabled) {
+            background-color: #45a049;
+        }
+        #send-button:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
+        }
+        .loading {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>KEN ChatBot</header>
+    <div id="chat-window">
+        <div class="bot-message">Chào bạn! Tôi là KEN Bot. Hỏi tôi bất cứ điều gì!</div>
+    </div>
+    
+    <div id="loading-indicator" class="loading" style="display: none;">🤖 Ken đang suy nghĩ...</div>
+
+    <form id="input-form">
+        <input type="text" id="user-input" placeholder="Nhập tin nhắn của bạn..." required>
+        <button type="submit" id="send-button">Gửi</button>
+    </form>
+</div>
+
+<script>
+    // **********************************************
+    // THAY THẾ KEY CỦA BẠN VÀO ĐÂY (CHỈ DÙNG CHO DEMO)
+    // KHÔNG SỬ DỤNG CÁCH NÀY TRONG ỨNG DỤNG SẢN XUẤT THỰC TẾ!
+    // **********************************************
+    const GEMINI_API_KEY = "AIzaSyBvAmZlq4fq4AaQuls4c4ZAViL02SidVYw"; 
+    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY;
+
+    const chatWindow = document.getElementById('chat-window');
+    const inputForm = document.getElementById('input-form');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
+    const loadingIndicator = document.getElementById('loading-indicator');
+
+    let chatHistory = []; // Lưu trữ lịch sử hội thoại cho context
+
+    /**
+     * Thêm tin nhắn vào cửa sổ chat
+     * @param {string} text Nội dung tin nhắn
+     * @param {('user'|'bot')} sender Người gửi
+     */
+    function appendMessage(text, sender) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message ' + (sender === 'user' ? 'user-message' : 'bot-message');
+        msgDiv.textContent = text;
+        chatWindow.appendChild(msgDiv);
+        chatWindow.scrollTop = chatWindow.scrollHeight; // Cuộn xuống cuối
+    }
+
+    /**
+     * Gửi tin nhắn đến Gemini API
+     * @param {string} message Tin nhắn của người dùng
+     */
+    async function sendMessage(message) {
+        // Thêm tin nhắn người dùng vào lịch sử và giao diện
+        appendMessage(message, 'user');
+        chatHistory.push({ role: "user", parts: [{ text: message }] });
+
+        // Hiển thị trạng thái đang tải
+        loadingIndicator.style.display = 'block';
+        userInput.disabled = true;
+        sendButton.disabled = true;
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    // Thiết lập hệ thống (System Instruction)
+                    config: {
+                        systemInstruction: "Bạn là một trợ lý chatbot thân thiện, hữu ích tên là Ken Bot. Hãy giữ câu trả lời ngắn gọn và tập trung vào chủ đề."
+                    },
+                    // Gửi lịch sử và tin nhắn mới
+                    contents: chatHistory,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const botReply = data.candidates[0].content.parts[0].text;
+            
+            // Thêm phản hồi của bot vào lịch sử và giao diện
+            appendMessage(botReply, 'bot');
+            chatHistory.push({ role: "model", parts: [{ text: botReply }] });
+
+        } catch (error) {
+            console.error('Lỗi khi gọi Gemini API:', error);
+            appendMessage("Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng kiểm tra API Key.", 'bot');
+            
+            // Xóa tin nhắn người dùng khỏi lịch sử nếu lỗi, tránh gửi lại
+            chatHistory.pop(); 
+        } finally {
+            // Ẩn trạng thái tải
+            loadingIndicator.style.display = 'none';
+            userInput.disabled = false;
+            sendButton.disabled = false;
+            userInput.focus();
+        }
+    }
+
+    // Xử lý sự kiện gửi form
+    inputForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const message = userInput.value.trim();
+        if (message) {
+            sendMessage(message);
+            userInput.value = ''; // Xóa input sau khi gửi
+        }
+    });
+
+    // Thử nghiệm tính năng: Bạn có thể thêm một tin nhắn khởi động ở đây
+    // sendMessage("Chào bạn!"); 
+
+</script>
+
+</body>
+</html>
