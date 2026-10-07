@@ -116,12 +116,13 @@
     </form>
 </div>
 
-<script type="module">
-    import { GoogleGenAI } from "https://esm.run/@google/genai";
-
-    // Thay API Key của bạn vào đây
+<script>
+    // 1. Dán API Key chuẩn của bạn vào đây
     const API_KEY = "AQ.Ab8RN6KjPgo_5r92yfIRrrf9Enj2V_2OUjyD-KW8xHd7jk5iUA"; 
-    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    
+    // 2. Endpoint chuẩn REST API v1beta của Google Gemini
+    const MODEL_NAME = "gemini-flash-lite-lastest";
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
 
     const chatWindow = document.getElementById('chat-window');
     const inputForm = document.getElementById('input-form');
@@ -129,13 +130,8 @@
     const sendButton = document.getElementById('send-button');
     const loadingIndicator = document.getElementById('loading-indicator');
 
-    // Khởi tạo Chat Session với model gemini-2.5-flash-lite
-    const chat = ai.chats.create({
-        model: "gemini-2.5-flash-lite", 
-        config: {
-            systemInstruction: "Bạn là một trợ lý chatbot thân thiện, hữu ích tên là Ken Bot. Hãy giữ câu trả lời ngắn gọn và tập trung vào chủ đề."
-        }
-    });
+    // Lưu trữ lịch sử hội thoại đúng chuẩn API
+    let chatHistory = [];
 
     function appendMessage(text, sender) {
         const msgDiv = document.createElement('div');
@@ -146,23 +142,59 @@
     }
 
     async function sendMessage(message) {
-        if (!message || message.trim() === '') return;
+        if (!message || message.trim() === "") return;
 
+        // Thêm tin nhắn của người dùng
         appendMessage(message, 'user');
+        chatHistory.push({
+            role: "user",
+            parts: [{ text: message }]
+        });
 
         loadingIndicator.style.display = 'block';
         userInput.disabled = true;
         sendButton.disabled = true;
 
         try {
-            const result = await chat.sendMessage({
-                message: message.trim()
+            // Cấu hình Payload đúng chuẩn REST API
+            const payload = {
+                systemInstruction: {
+                    parts: [{ text: "Bạn là một trợ lý chatbot thân thiện, hữu ích tên là Ken Bot. Hãy giữ câu trả lời ngắn gọn và tập trung vào chủ đề." }]
+                },
+                contents: chatHistory
+            };
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
             });
 
-            appendMessage(result.text, 'bot');
+            const data = await response.json();
+
+            // Nếu trả về lỗi
+            if (!response.ok) {
+                console.error("Lỗi từ Google API:", data);
+                throw new Error(data.error?.message || `HTTP error! Status: ${response.status}`);
+            }
+
+            // Trích xuất phản hồi từ Gemini
+            const botReply = data.candidates[0].content.parts[0].text;
+
+            // Thêm phản hồi vào giao diện và lịch sử
+            appendMessage(botReply, 'bot');
+            chatHistory.push({
+                role: "model",
+                parts: [{ text: botReply }]
+            });
+
         } catch (error) {
-            console.error('Lỗi API:', error);
-            appendMessage("Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu. Vui lòng kiểm tra lại API Key hoặc tên Model.", 'bot');
+            console.error('Lỗi khi gửi yêu cầu:', error);
+            appendMessage(`Lỗi: ${error.message}`, 'bot');
+            // Xóa câu hỏi vừa rồi khỏi lịch sử nếu bị lỗi
+            chatHistory.pop();
         } finally {
             loadingIndicator.style.display = 'none';
             userInput.disabled = false;
