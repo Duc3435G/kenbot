@@ -121,7 +121,7 @@
     import { GoogleGenAI } from "https://esm.run/@google/genai";
 
     // Thay thế API Key của bạn vào đây
-    const API_KEY = "YOUR_API_KEY"; 
+    const API_KEY = "AQ.Ab8RN6KjPgo_5r92yfIRrrf9Enj2V_2OUjyD-KW8xHd7jk5iUA"; 
     const ai = new GoogleGenAI({ apiKey: API_KEY });
 
     const chatWindow = document.getElementById('chat-window');
@@ -132,7 +132,7 @@
 
     // Khởi tạo Chat Session duy nhất để duy trì context lịch sử trò chuyện
     const chat = ai.chats.create({
-        model: "gemini-2.5-flash",
+        model: "gemini-flash-lite-lastest",
         config: {
             systemInstruction: "Bạn là một trợ lý chatbot thân thiện, hữu ích tên là Ken Bot. Hãy giữ câu trả lời ngắn gọn và tập trung vào chủ đề."
         }
