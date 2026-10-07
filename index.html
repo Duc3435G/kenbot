@@ -25,7 +25,7 @@
             flex-direction: column;
         }
         header {
-            background-color: #4a148c; /* Deep Purple */
+            background-color: #4a148c;
             color: white;
             padding: 15px;
             text-align: center;
@@ -116,13 +116,13 @@
     </form>
 </div>
 
-<script>
-    // **********************************************
-    // THAY THẾ KEY CỦA BẠN VÀO ĐÂY (CHỈ DÙNG CHO DEMO)
-    // KHÔNG SỬ DỤNG CÁCH NÀY TRONG ỨNG DỤNG SẢN XUẤT THỰC TẾ!
-    // **********************************************
-    const GEMINI_API_KEY = "AQ.Ab8RN6KjPgo_5r92yfIRrrf9Enj2V_2OUjyD-KW8xHd7jk5iUA"; 
-    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest";
+<!-- Sử dụng ES Module trực tiếp từ CDN -->
+<script type="module">
+    import { GoogleGenAI } from "https://esm.run/@google/genai";
+
+    // Thay thế API Key của bạn vào đây
+    const API_KEY = "YOUR_API_KEY"; 
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
 
     const chatWindow = document.getElementById('chat-window');
     const inputForm = document.getElementById('input-form');
@@ -130,68 +130,46 @@
     const sendButton = document.getElementById('send-button');
     const loadingIndicator = document.getElementById('loading-indicator');
 
-    let chatHistory = []; // Lưu trữ lịch sử hội thoại cho context
+    // Khởi tạo Chat Session duy nhất để duy trì context lịch sử trò chuyện
+    const chat = ai.chats.create({
+        model: "gemini-2.5-flash",
+        config: {
+            systemInstruction: "Bạn là một trợ lý chatbot thân thiện, hữu ích tên là Ken Bot. Hãy giữ câu trả lời ngắn gọn và tập trung vào chủ đề."
+        }
+    });
 
     /**
      * Thêm tin nhắn vào cửa sổ chat
-     * @param {string} text Nội dung tin nhắn
-     * @param {('user'|'bot')} sender Người gửi
      */
     function appendMessage(text, sender) {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'message ' + (sender === 'user' ? 'user-message' : 'bot-message');
         msgDiv.textContent = text;
         chatWindow.appendChild(msgDiv);
-        chatWindow.scrollTop = chatWindow.scrollHeight; // Cuộn xuống cuối
+        chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
     /**
-     * Gửi tin nhắn đến Gemini API
-     * @param {string} message Tin nhắn của người dùng
+     * Gửi tin nhắn qua Gemini SDK
      */
     async function sendMessage(message) {
-        // Thêm tin nhắn người dùng vào lịch sử và giao diện
         appendMessage(message, 'user');
-        chatHistory.push({ role: "user", parts: [{ text: message }] });
 
-        // Hiển thị trạng thái đang tải
         loadingIndicator.style.display = 'block';
         userInput.disabled = true;
         sendButton.disabled = true;
 
         try {
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    // Thiết lập hệ thống (System Instruction)
-                    config: {
-                        systemInstruction: "Bạn là một trợ lý chatbot thân thiện, hữu ích tên là Ken Bot. Hãy giữ câu trả lời ngắn gọn và tập trung vào chủ đề."
-                    },
-                    // Gửi lịch sử và tin nhắn mới
-                    contents: chatHistory,
-                }),
+            // Gửi tin nhắn qua chat session
+            const result = await chat.sendMessage({
+                message: message
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            const botReply = data.candidates[0].content.parts[0].text;
-            
-            // Thêm phản hồi của bot vào lịch sử và giao diện
-            appendMessage(botReply, 'bot');
-            chatHistory.push({ role: "model", parts: [{ text: botReply }] });
-
+            appendMessage(result.text, 'bot');
         } catch (error) {
             console.error('Lỗi khi gọi Gemini API:', error);
-            appendMessage("Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng kiểm tra API Key.", 'bot');
-            
-            // Xóa tin nhắn người dùng khỏi lịch sử nếu lỗi, tránh gửi lại
-            chatHistory.pop(); 
+            appendMessage("Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng kiểm tra lại API Key hoặc kết nối mạng.", 'bot');
         } finally {
-            // Ẩn trạng thái tải
             loadingIndicator.style.display = 'none';
             userInput.disabled = false;
             sendButton.disabled = false;
@@ -199,19 +177,14 @@
         }
     }
 
-    // Xử lý sự kiện gửi form
     inputForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const message = userInput.value.trim();
         if (message) {
             sendMessage(message);
-            userInput.value = ''; // Xóa input sau khi gửi
+            userInput.value = '';
         }
     });
-
-    // Thử nghiệm tính năng: Bạn có thể thêm một tin nhắn khởi động ở đây
-    // sendMessage("Chào bạn!"); 
-
 </script>
 
 </body>
