@@ -116,11 +116,10 @@
     </form>
 </div>
 
-<!-- Sử dụng ES Module trực tiếp từ CDN -->
 <script type="module">
     import { GoogleGenAI } from "https://esm.run/@google/genai";
 
-    // Thay thế API Key của bạn vào đây
+    // Thay API Key của bạn vào đây
     const API_KEY = "AQ.Ab8RN6KjPgo_5r92yfIRrrf9Enj2V_2OUjyD-KW8xHd7jk5iUA"; 
     const ai = new GoogleGenAI({ apiKey: API_KEY });
 
@@ -130,17 +129,14 @@
     const sendButton = document.getElementById('send-button');
     const loadingIndicator = document.getElementById('loading-indicator');
 
-    // Khởi tạo Chat Session duy nhất để duy trì context lịch sử trò chuyện
+    // Khởi tạo Chat Session với model gemini-2.5-flash-lite
     const chat = ai.chats.create({
-        model: "gemini-flash-lite-lastest",
+        model: "gemini-2.5-flash-lite", 
         config: {
             systemInstruction: "Bạn là một trợ lý chatbot thân thiện, hữu ích tên là Ken Bot. Hãy giữ câu trả lời ngắn gọn và tập trung vào chủ đề."
         }
     });
 
-    /**
-     * Thêm tin nhắn vào cửa sổ chat
-     */
     function appendMessage(text, sender) {
         const msgDiv = document.createElement('div');
         msgDiv.className = 'message ' + (sender === 'user' ? 'user-message' : 'bot-message');
@@ -149,10 +145,9 @@
         chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
-    /**
-     * Gửi tin nhắn qua Gemini SDK
-     */
     async function sendMessage(message) {
+        if (!message || message.trim() === '') return;
+
         appendMessage(message, 'user');
 
         loadingIndicator.style.display = 'block';
@@ -160,15 +155,14 @@
         sendButton.disabled = true;
 
         try {
-            // Gửi tin nhắn qua chat session
             const result = await chat.sendMessage({
-                message: message
+                message: message.trim()
             });
 
             appendMessage(result.text, 'bot');
         } catch (error) {
-            console.error('Lỗi khi gọi Gemini API:', error);
-            appendMessage("Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng kiểm tra lại API Key hoặc kết nối mạng.", 'bot');
+            console.error('Lỗi API:', error);
+            appendMessage("Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu. Vui lòng kiểm tra lại API Key hoặc tên Model.", 'bot');
         } finally {
             loadingIndicator.style.display = 'none';
             userInput.disabled = false;
